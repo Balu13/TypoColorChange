@@ -1,10 +1,5 @@
 #pragma once
 
-enum class LinePositions
-{
-    begin, firstValue, secondValue, inkCode, lastValue, end
-};
-
 struct ColorValueShift
 {
     unsigned int cyan = 0;
@@ -14,7 +9,7 @@ struct ColorValueShift
 
     bool isEqual()
     {
-        return cyan == magenta == yellow == black;
+        return cyan == magenta && cyan == yellow && cyan == black;
     }
 };
 

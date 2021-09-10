@@ -10,9 +10,8 @@ const std::string usageString = "\nError!\nUsage: TypoColorChange.exe input_file
 const std::string inkPrefix = "/HDMInkCode /HDMInk";
 const std::string inkCodePrefix = "/HDMInk";
 const std::string targetLinePrefix = "/HDMZoneCoverageValue";
-const std::string arrPrefix = "[0.0";
-const std::string zero = "0.0";
-const std::string arrSuffix = "]";
+const char arrPrefix = '[';
+const char arrSuffix = ']';
 const std::string lineFinish = "def";
 
 /*
@@ -108,16 +107,16 @@ int main(int argc, char *argv[])
         }
 
         std::stringstream outLine;
-        outLine << targetLinePrefix << ' ' << arrPrefix << ' ' << zero;
+        outLine << targetLinePrefix << ' ' << arrPrefix;
 
         std::vector<std::string> numbers = processValuesLine(inFilename, inFile.tellg().operator-(1), savedLineLen);
         std::vector<std::string> increased = increaseIntPartsInVector(numbers, shift);
 
         for (auto& number : increased)
         {
-            outLine << ' ' << number;
+            outLine << number << ' ';
         }
-        outLine << ' ' << zero << ' ' << arrSuffix << ' ' << lineFinish;
+        outLine << arrSuffix << ' ' << lineFinish;
         outFile.write(outLine.str().c_str(), outLine.str().length());
         std::cout << outLine.str() << "\n\n";
     }
@@ -125,7 +124,7 @@ int main(int argc, char *argv[])
     inFile.close();
     outFile.close();
     remove(inFilename.c_str());
-    rename(outFilename.c_str(), inFilename.c_str());
+    int renRes = rename(outFilename.c_str(), inFilename.c_str());
 
     return 0;
 }
@@ -186,85 +185,22 @@ std::vector<std::string> processValuesLine(std::string filename, long long pos, 
     std::ifstream file = reopenFileForTextRead(filename, pos, strInput, savedLineLen);
 
     std::vector<std::string> strNumbers;
-    LinePositions linePos{ LinePositions::begin };
-    LinePositions nextLinePos;
+
+    file >> strInput; //  line prefix
+    file >> strInput; //  array start
+    if (strInput[0] == arrPrefix)
+    {
+        strNumbers.push_back(strInput.substr(1));
+    }
 
     while (file)
     {
         file >> strInput;
-        std::string searchWord = "";
-        switch (linePos)
+        if (strInput[strInput.length() - 1] == arrSuffix)
         {
-        case LinePositions::begin:
-        {
-            searchWord = targetLinePrefix;
-            nextLinePos = LinePositions::firstValue;
             break;
         }
-        case LinePositions::firstValue:
-        {
-            searchWord = arrPrefix;
-            nextLinePos = LinePositions::secondValue;
-            break;
-        }
-        case LinePositions::secondValue:
-        {
-            searchWord = zero;
-            nextLinePos = LinePositions::lastValue;
-            break;
-        }
-        case LinePositions::lastValue:
-        {
-            searchWord = zero;
-            nextLinePos = LinePositions::end;
-            break;
-        }
-        case LinePositions::end:
-        {
-            searchWord = arrSuffix;
-            break;
-        }
-        default:
-            break;
-        }
-
-        if (linePos < LinePositions::lastValue)
-        {
-            if (strInput != searchWord)
-            {
-                // incorrect line
-                break;
-            }
-            linePos = nextLinePos;
-        }
-        else if (linePos == LinePositions::lastValue)
-        {
-            if (strInput != searchWord)
-            {
-                // process number
-                strNumbers.push_back(strInput);
-            }
-            else
-            {
-                linePos = nextLinePos;
-            }
-        }
-        else
-        {
-            if (strInput != searchWord)
-            { // not last zero in the array
-                // process number
-                strNumbers.push_back(zero);
-                strNumbers.push_back(strInput);
-                linePos = LinePositions::lastValue;
-            }
-            else
-            {
-                // end of line
-                //strNumbers.pop_back(); // remove second last value
-                break;
-            }
-        }
+        strNumbers.push_back(strInput);
     }
 
     return strNumbers;
@@ -274,24 +210,28 @@ std::vector<std::string> increaseIntPartsInVector(const std::vector<std::string>
 {
     std::vector<std::string> increased;
     
-    if (!numbers.empty())
+    if (numbers.size() > 4)
     {
-        std::string lastNumber;
-
+        int numberNo = 0;
         for (auto& number : numbers)
         {
-            lastNumber = number; // we won't increase second last value
-            std::stringstream str{ number };
-            std::string part;
-            std::getline(str, part, '.');
-            int intPart = atoi(part.c_str());
-            std::getline(str, part);
-            std::stringstream inc;
-            inc << intPart + shift << '.' << part;
-            increased.push_back(inc.str());
+            if (numberNo > 1 && numberNo < numbers.size() - 2)
+            { // we won't increase two first and two last values
+                std::stringstream str{ number };
+                std::string part;
+                std::getline(str, part, '.');
+                int intPart = atoi(part.c_str());
+                std::getline(str, part);
+                std::stringstream inc;
+                inc << intPart + shift << '.' << part;
+                increased.push_back(inc.str());
+            }
+            else
+            {
+                increased.push_back(number);
+            }
+            ++numberNo;
         }
-        increased.pop_back(); // remove second last value
-        increased.push_back(lastNumber); // push not increased
     }
 
     return increased;
